@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gas & Flame Detection Dashboard</title>
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: url('gas.jpg') no-repeat center center fixed;
+      background-size: cover;
+      position: relative;
+      color: #fff;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 0;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 1rem;
+    }
+
+    h1 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      text-align: center;
+      text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+      margin-bottom: 1.5rem;
+    }
+
+    .dashboard {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      gap: 2rem;
+      flex-wrap: wrap;
+      flex-grow: 1;
+    }
+
+    .status-box {
+      background: rgba(255, 255, 255, 0.85);
+      color: #222;
+      padding: 1.5rem;
+      border-radius: 18px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      width: 320px;
+      text-align: center;
+      font-weight: 500;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .status-box h2 {
+      margin-top: 0;
+      font-size: 1.6rem;
+      color: #6a00f4;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+
+    .value {
+      font-size: 2.8rem;
+      margin: 0.5rem 0;
+      font-weight: bold;
+      color: #000;
+    }
+
+    .unit-label {
+      font-size: 1.1rem;
+      color: #333;
+      margin-top: -8px;
+      margin-bottom: 1rem;
+    }
+
+    .sub-value {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      font-weight: bold;
+    }
+
+    .alert {
+      color: #d00000;
+    }
+
+    .safe {
+      color: #007f5f;
+    }
+
+    @media (max-width: 1000px) {
+      .dashboard {
+        flex-direction: column;
+        align-items: center;
+        height: auto;
+      }
+
+      .content {
+        height: auto;
+        padding-bottom: 3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="content">
+    <h1>🔥 Real-Time Gas & Flame Monitoring</h1>
+
+    <!-- All Cards in One Row -->
+    <div class="dashboard">
+      <!-- Gas Detection -->
+      <div class="status-box">
+        <h2>Gas Detection</h2>
+        <div class="value" id="gasValue">--</div>
+        <div id="gasStatus" class="sub-value">Loading…</div>
+      </div>
+
+      <!-- Flame Detection -->
+      <div class="status-box">
+        <h2>Flame Detection</h2>
+        <div class="sub-value">Temp: <span id="tempValue">--</span> °C</div>
+        <div class="sub-value">Light: <span id="ldrValue">--</span></div>
+        <div id="flameStatus" class="sub-value">Loading…</div>
+      </div>
+
+      <!-- Gas Time Remaining -->
+      <div class="status-box">
+        <h2>Gas Remaining Time</h2>
+        <div class="value" id="daysLeft">--</div>
+        <div class="unit-label">Days</div>
+        <div class="value" id="hoursLeft">--</div>
+        <div class="unit-label">Hours</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const gasValueEl = document.getElementById('gasValue');
+    const gasStatusEl = document.getElementById('gasStatus');
+    const tempValueEl = document.getElementById('tempValue');
+    const ldrValueEl = document.getElementById('ldrValue');
+    const flameStatusEl = document.getElementById('flameStatus');
+    const daysLeftEl = document.getElementById('daysLeft');
+    const hoursLeftEl = document.getElementById('hoursLeft');
+
+    const GAS_THRESHOLD = 4;
+    const TEMP_THRESHOLD = 33;
+    const LDR_THRESHOLD = 1.8;
+
+    async function fetchText(path) {
+      try {
+        const res = await fetch(path + '?ts=' + Date.now());
+        if (!res.ok) throw new Error(res.status);
+        const text = await res.text();
+        return parseFloat(text.trim());
+      } catch (err) {
+        return NaN;
+      }
+    }
+
+    async function update() {
+      const gas = await fetchText('/gas_val.txt');
+      const temp = await fetchText('/temp_val.txt');
+      const ldr = await fetchText('/ldr_val.txt');
+      const days = await fetchText('/day_val.txt');
+      const hours = await fetchText('/hour_val.txt');
+
+      if (!isNaN(gas)) {
+        gasValueEl.textContent = gas.toFixed(2);
+        gasStatusEl.textContent = gas > GAS_THRESHOLD
+          ? '⚠️ Warning: Gas Leak Detected'
+          : '✅ No Gas Leak';
+        gasStatusEl.className = gas > GAS_THRESHOLD ? 'sub-value alert' : 'sub-value safe';
+      }
+
+      if (!isNaN(temp) && !isNaN(ldr)) {
+        tempValueEl.textContent = temp.toFixed(1);
+        ldrValueEl.textContent = ldr.toFixed(2);
+        const flameDetected = temp > TEMP_THRESHOLD && ldr > LDR_THRESHOLD;
+        flameStatusEl.textContent = flameDetected
+          ? '🔥 Flame Detected'
+          : '✅ No Flame Detected';
+        flameStatusEl.className = flameDetected ? 'sub-value alert' : 'sub-value safe';
+      }
+
+      if (!isNaN(days)) {
+        daysLeftEl.textContent = Math.floor(days);
+      }
+
+      if (!isNaN(hours)) {
+        hoursLeftEl.textContent = Math.floor(hours);
+      }
+    }
+
+    update();
+    setInterval(update, 1000);
+  </script>
+</body>
+</html>
